@@ -2,8 +2,8 @@ var pick = function(array) {
   return array[Math.floor(Math.random() * array.length)];  // Yes, this is slightly biased.  No, I don't care.
 }
 
-var score = function(grid) {
-  return grid.availableCells().length / 16 - 0.5;
+var scoreGrid = function(grid) {
+  return grid.availableCells().length / 16;
 }
 
 function AI(grid) {
@@ -11,72 +11,60 @@ function AI(grid) {
 }
 
 AI.prototype.getBest = function () {
-  var endTime = (+new Date()) + 500; // in milliseconds
-  var counts = [0, 0, 0, 0];
-  var results = [0, 0, 0, 0];
-  while (endTime > +new Date()) {
-    var move = this.getMove();
-    counts[move.direction]++;
-    results[move.direction] += move.result;
-  }
-
-  console.log(counts, results);
-
-  var max = Math.max();
-  var maxes = [];
-  for (var i = 0; i < 4; i++) {
-    if (!counts[i]) continue;
-    if (results[i] / counts[i] > max) {
-      max = results[i] / counts[i];
-      maxes = [i];
-    } else if (results[i] == max) {
-      maxes.push(i);
-    }
-  }
-
-  return { move: pick(maxes) };
+  move = getMove(this.grid, 4);
+  console.log(move);
+  return move;
 }
 
-var randomMove = function(grid) {
-  var moves = [];
-  var grids = [];
-  for (var direction = 0; direction < 4; direction++) {
-    var newGrid;
-    grids[direction] = newGrid = grid.clone();
-    if (newGrid.move(direction).moved) {
-      moves.push(direction);
-    }
-  }
-
-  if (moves.length == 0) {
-    return null;
-  }
-
-  direction = pick(moves);
-  return { direction: direction, grid: grids[direction] };
-}
-
-AI.prototype.getMove = function() {
-  var depth = 50;
-
-  var move = randomMove(this.grid);
-  var currentGrid = move.grid;
-  while (depth-- > 0) {
-    if (currentGrid.isWin()) {
-      return { direction: move.direction, result: 1 };
+function getMove(grid, depth) {
+  if (grid.playerTurn && depth == 0) {
+    return { score: scoreGrid(grid) };
+  } else if (grid.playerTurn) {
+    var moves = [];
+    for (var dir = 0; dir < 4; dir++) {
+      var newGrid = grid.clone();
+      if (!newGrid.move(dir).moved) continue;
+      if (newGrid.isWin()) {
+        moves.push({ move: dir, score: 1000 });
+      } else {
+        moves.push({ move: dir, score: getMove(newGrid, depth).score });
+      }
     }
 
-    var cell = pick(currentGrid.availableCells());
-    var value = Math.random() < 0.9 ? 2 : 4;
-    currentGrid.insertTile(new Tile(cell, value));
-
-    var nextMove = randomMove(currentGrid);
-    if (nextMove == null) {
-      return { direction: move.direction, result: -1 };
+    if (moves.length == 0) {
+      return { score: 0 };
     }
 
-    currentGrid = nextMove.grid;
-  }
+    moves.sort(function (a, b) { return b.score - a.score; });
+    return moves[0];
+  } else {
+    var score = 0;
+    var emptyCells = grid.availableCells();
 
-  return { direction: move.direction, result: score(currentGrid) };
+    while (emptyCells.length > 4) {
+      emptyCells.splice(Math.floor(Math.random() * emptyCells.length), 1);
+    }
+
+    for (var c = 0; c < emptyCells.length; c++) {
+
+      var twoGrid = grid.clone();
+      twoGrid.insertTile(new Tile(emptyCells[c], 2));
+      twoGrid.playerTurn = true;
+      var two = getMove(twoGrid, depth - 1).score;
+
+      if (emptyCells.length > 2) {
+        score += two;
+        continue;
+      }
+
+      var fourGrid = grid.clone();
+      fourGrid.insertTile(new Tile(emptyCells[c], 4));
+      fourGrid.playerTurn = true;
+      var four = getMove(fourGrid, depth - 1).score;
+
+      score += two * 0.9 + four * 0.1;
+    }
+
+    return { score: score / emptyCells.length };
+  }
 }
