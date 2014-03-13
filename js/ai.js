@@ -3,7 +3,26 @@ var pick = function(array) {
 }
 
 var scoreGrid = function(grid) {
-  return grid.availableCells().length / 16;
+  var empty = 0;
+  var unique = {};
+  var sum = 0;
+  var uniqueSum = 0;
+  for (var x = 0; x < 4; x++) {
+    for (var y = 0; y < 4; y++) {
+      var cell = grid.cells[x][y];
+      if (cell) {
+        var value = cell.value;
+        sum += value;
+        if (typeof unique[value] == "undefined") {
+          unique[value] = null;
+          uniqueSum += value;
+        }
+      } else {
+        empty += 1;
+      }
+    }
+  }
+  return empty / 16 + uniqueSum / sum;
 }
 
 function AI(grid) {
@@ -41,18 +60,19 @@ function getMove(grid, depth) {
     var score = 0;
     var emptyCells = grid.availableCells();
 
+    var pruneFours = (depth > 2 && emptyCells.length > 2) || emptyCells.length > 4;
+
     while (emptyCells.length > 4) {
       emptyCells.splice(Math.floor(Math.random() * emptyCells.length), 1);
     }
 
     for (var c = 0; c < emptyCells.length; c++) {
-
       var twoGrid = grid.clone();
       twoGrid.insertTile(new Tile(emptyCells[c], 2));
       twoGrid.playerTurn = true;
       var two = getMove(twoGrid, depth - 1).score;
 
-      if (emptyCells.length > 2) {
+      if (pruneFours) {
         score += two;
         continue;
       }
