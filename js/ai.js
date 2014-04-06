@@ -132,8 +132,14 @@ AI.prototype.getMove = function(grid, depth) {
         score.loss = 1;
         result = { score: score };
       } else {
-        moves.sort(function (a, b) { return compareScores(a.score, b.score); });
-        result = moves[0];
+        var min = moves[0];
+        for (var i = 1; i < moves.length; i++) {
+          var move = moves[i];
+          if (compareScores(min.score, move.score) > 0) {
+            min = move;
+          }
+        }
+        result = min;
       }
     }
   } else {
