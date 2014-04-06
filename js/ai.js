@@ -1,66 +1,67 @@
 var compareScores = function(a, b) {
-  if (a.win != b.win) {
-    return b.win - a.win;
-  } else if (a.loss != b.loss)  {
+  if (a.loss != b.loss) {
     return a.loss - b.loss;
-  } else if (a.wasted != b.wasted) {
-    return a.wasted - b.wasted;
-  } else if (a.average != b.average) {
-    return b.average - a.average;
-  } else {
-    return 0;
   }
+
+  var ac = a.counts;
+  var bc = b.counts;
+  var al = ac.length;
+  var bl = bc.length;
+  var len = Math.max(al, bl);
+  for (var i = 0; i < len; i++) {
+    var av = ac[i] || 0;
+    var bv = bc[i] || 0;
+    if (av != bv) {
+      return bv - av;
+    }
+  }
+
+  return 0;
 }
 
 var combineScores = function(scores, weights) {
-  var s = scores.length;
-  var c = { };
-  var w = 0;
-  for (var i = 0; i < s; i++) {
+  var loss = 0;
+  var counts = [];
+  var totalWeight = 0;
+  for (var i = 0; i < scores.length; i++) {
+    var score = scores[i];
     var weight = weights[i];
-    for (var p in scores[i]) {
-      c[p] = (c[p] || 0) + scores[i][p] * weight;
-    }
-    w += weight;
-  }
-  for (var p in c) {
-    c[p] /= w;
-  }
-  return c;
-}
 
-var hammingWeight = function (x) {
-  var sum = 0;
-  for (x = x | 0; x > 0; x = x >> 1) {
-    if (x & 1) sum++;
+    totalWeight += weight;
+
+    loss += score.loss * weight;
+
+    var c = score.counts;
+    var l = c.length;
+    while (counts.length < l) counts.push(0);
+    for (var j = 0; j < l; j++) {
+      counts[j] += c[j] * weight;
+    }
   }
-  return sum;
+
+  for (var i = 0; i < counts.length; i++) {
+    counts[i] /= totalWeight;
+  }
+
+  return { loss: loss / totalWeight, counts: counts };
 }
 
 var scoreGrid = function(grid) {
-  var vectors = [{ x: 1, y: 0 }, { x: 0, y: 1 }, { x: -1, y: 0 }, { x: 0, y: -1 }];
-  var empty = 0;
-  var sum = 0;
-  var win = 0;
+  var counts = [ 0 ];
   for (var x = 0; x < 4; x++) {
     for (var y = 0; y < 4; y++) {
       var cell = grid.cells[x][y];
       if (cell) {
-        var value = cell.value;
-        sum += value;
-        if (value == 2048) {
-          win = 1;
-        }
+        var exp = Math.log(cell.value) / Math.LN2;
+        while (counts.length <= exp) counts.push(0);
+        counts[exp] += 1;
       } else {
-        empty += 1;
+        counts[0] += 1;
       }
     }
   }
 
-  var maxEmpty = 16 - hammingWeight(sum);
-  var wasted = maxEmpty - empty;
-
-  return { win: win, loss: 0, wasted: wasted, average: Math.log(sum / (16 - empty)) / Math.LN2 };
+  return { loss: 0, counts: counts };
 }
 
 function AI(grid) {
@@ -71,7 +72,7 @@ AI.prototype.getBest = function () {
   var startTime = +new Date();
   move = getMove(this.grid, 3);
   var endTime = +new Date();
-  console.log([endTime - startTime, move.score.win, move.score.loss, move.score.wasted, move.score.average]);
+  console.log([move.score.counts.map(function (x) { var y = x ? x.toFixed(2) : '    '; return y.length < 5 ? ' ' + y : y; }).join(), move.score.loss, endTime - startTime]);
   return move;
 }
 
