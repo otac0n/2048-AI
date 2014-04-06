@@ -7,6 +7,7 @@ var compareScores = function(a, b) {
   var bc = b.counts;
   var len = Math.max(ac.length, bc.length);
   for (var i = len - 1; i >= 0; i--) {
+    if (i == 1) continue;
     var av = ac[i] || 0;
     var bv = bc[i] || 0;
     if (av != bv) {
@@ -66,7 +67,8 @@ var hashGrid = function(grid) {
   for (var x = 0; x < 4; x++) {
     for (var y = 0; y < 4; y++) {
       var cell = grid.cells[x][y];
-      var exp = cell ? Math.log(cell.value) / Math.LN2 : 0;
+      var value = cell ? cell.value : 1;
+      var exp = Math.log(value) / Math.LN2;
       hash = hash ^ hashes[x][y][exp];
     }
   }
@@ -97,7 +99,7 @@ AI.prototype.getBest = function () {
   this.cache = { hit: 0, miss: 0 };
   move = this.getMove(this.grid, 4);
   var endTime = +new Date();
-  console.log([move.score.counts.map(function (x) { var y = x ? x.toFixed(2) : '    '; return y.length < 5 ? ' ' + y : y; }).join(), move.score.loss, move.score.depth.toFixed(1), endTime - startTime, Math.round(100 * this.cache.hit / (this.cache.hit + this.cache.miss))]);
+  console.log(move.score.loss.toFixed(1) + ', ' + move.score.depth.toFixed(1) + ', ' + (endTime - startTime) + ', ' + Math.round(100 * this.cache.hit / (this.cache.hit + this.cache.miss)) + ', ' + move.score.counts.join(', '));
   return move;
 }
 
