@@ -5,10 +5,8 @@ var compareScores = function(a, b) {
 
   var ac = a.counts;
   var bc = b.counts;
-  var al = ac.length;
-  var bl = bc.length;
-  var len = Math.max(al, bl);
-  for (var i = 0; i < len; i++) {
+  var len = Math.max(ac.length, bc.length);
+  for (var i = len - 1; i >= 0; i--) {
     var av = ac[i] || 0;
     var bv = bc[i] || 0;
     if (av != bv) {
@@ -76,17 +74,14 @@ var hashGrid = function(grid) {
 }
 
 var scoreGrid = function(grid) {
-  var counts = [ 0 ];
+  var counts = [ 0, 0 ];
   for (var x = 0; x < 4; x++) {
     for (var y = 0; y < 4; y++) {
       var cell = grid.cells[x][y];
-      if (cell) {
-        var exp = Math.log(cell.value) / Math.LN2;
-        while (counts.length <= exp) counts.push(0);
-        counts[exp] += 1;
-      } else {
-        counts[0] += 1;
-      }
+      var value = cell ? cell.value : 1;
+      var exp = Math.log(value) / Math.LN2;
+      while (counts.length <= exp) counts.push(0);
+      counts[exp] += 1;
     }
   }
 
