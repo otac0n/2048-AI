@@ -64,12 +64,12 @@ for (var x = 0; x < 4; x++) {
     var b = [];
     a.push(b);
     for (var i = 0; i < 17; i++) {
-      b.push(Math.random() * (-1 >>> 0) >>> 0);
+      b.push(Math.random() * (-1 >>> 0) >> 0);
     }
   }
 }
-hashes[true] = Math.random() * (-1 >>> 0) >>> 0;
-hashes[false] = Math.random() * (-1 >>> 0) >>> 0;
+hashes[true] = Math.random() * (-1 >>> 0) >> 0;
+hashes[false] = Math.random() * (-1 >>> 0) >> 0;
 
 var hashGrid = function(grid) {
   var hash = hashes[grid.playerTurn];
