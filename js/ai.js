@@ -100,7 +100,7 @@ function AI(grid) {
 AI.prototype.getBest = function () {
   var startTime = +new Date();
   this.cache = {};
-  move = this.getMove(this.grid, 3);
+  move = this.getMove(this.grid, 4);
   var endTime = +new Date();
   console.log([move.score.counts.map(function (x) { var y = x ? x.toFixed(2) : '    '; return y.length < 5 ? ' ' + y : y; }).join(), move.score.loss, move.score.depth.toFixed(1), endTime - startTime]);
   return move;
