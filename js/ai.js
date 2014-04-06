@@ -99,10 +99,10 @@ function AI(grid) {
 
 AI.prototype.getBest = function () {
   var startTime = +new Date();
-  this.cache = {};
+  this.cache = { hit: 0, miss: 0 };
   move = this.getMove(this.grid, 4);
   var endTime = +new Date();
-  console.log([move.score.counts.map(function (x) { var y = x ? x.toFixed(2) : '    '; return y.length < 5 ? ' ' + y : y; }).join(), move.score.loss, move.score.depth.toFixed(1), endTime - startTime]);
+  console.log([move.score.counts.map(function (x) { var y = x ? x.toFixed(2) : '    '; return y.length < 5 ? ' ' + y : y; }).join(), move.score.loss, move.score.depth.toFixed(1), endTime - startTime, Math.round(100 * this.cache.hit / (this.cache.hit + this.cache.miss))]);
   return move;
 }
 
@@ -110,7 +110,10 @@ AI.prototype.getMove = function(grid, depth) {
   var hash = hashGrid(grid);
   var result = this.cache[hash];
   if (result && result.score.depth >= depth) {
+    this.cache.hit += 1;
     return result;
+  } else {
+    this.cache.miss += 1;
   }
 
   if (grid.playerTurn) {
