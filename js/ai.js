@@ -1,3 +1,12 @@
+var forEachCell = function (grid, func) {
+  for (var x = 0; x < 4; x++) {
+    for (var y = 0; y < 4; y++) {
+      var cell = grid.cells[x][y];
+      func(cell ? cell.value : 0, x, y, cell);
+    }
+  }
+}
+
 var compareScores = function(a, b) {
   if (a.loss != b.loss) {
     return a.loss - b.loss;
@@ -64,28 +73,20 @@ hashes[false] = Math.random() * (-1 >>> 0) >>> 0;
 
 var hashGrid = function(grid) {
   var hash = hashes[grid.playerTurn];
-  for (var x = 0; x < 4; x++) {
-    for (var y = 0; y < 4; y++) {
-      var cell = grid.cells[x][y];
-      var value = cell ? cell.value : 1;
-      var exp = Math.log(value) / Math.LN2;
-      hash = hash ^ hashes[x][y][exp];
-    }
-  }
+  forEachCell(grid, function (value, x, y) {
+    var exp = Math.log(value || 1) / Math.LN2;
+    hash = hash ^ hashes[x][y][exp];
+  });
   return hash;
 }
 
 var scoreGrid = function(grid) {
   var counts = [ 0, 0 ];
-  for (var x = 0; x < 4; x++) {
-    for (var y = 0; y < 4; y++) {
-      var cell = grid.cells[x][y];
-      var value = cell ? cell.value : 1;
-      var exp = Math.log(value) / Math.LN2;
-      while (counts.length <= exp) counts.push(0);
-      counts[exp] += 1;
-    }
-  }
+  forEachCell(grid, function (value) {
+    var exp = Math.log(value || 1) / Math.LN2;
+    while (counts.length <= exp) counts.push(0);
+    counts[exp] += 1;
+  });
 
   return { loss: 0, counts: counts, depth: 0 };
 }
@@ -99,12 +100,9 @@ AI.prototype.getBest = function () {
   this.cache = { hit: 0, miss: 0 };
 
   var empty = 0;
-  for (var x = 0; x < 4; x++) {
-    for (var y = 0; y < 4; y++) {
-      var cell = this.grid.cells[x][y];
-      if (!cell) empty += 1;
-    }
-  }
+  forEachCell(this.grid, function (value) {
+    empty += value ? 0 : 1;
+  });
 
   move = this.getMove(this.grid, empty < 4 ? 4 : empty < 6 ? 3 : 2);
   var endTime = +new Date();
