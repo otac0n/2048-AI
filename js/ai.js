@@ -97,9 +97,18 @@ function AI(grid) {
 AI.prototype.getBest = function () {
   var startTime = +new Date();
   this.cache = { hit: 0, miss: 0 };
-  move = this.getMove(this.grid, 4);
+
+  var empty = 0;
+  for (var x = 0; x < 4; x++) {
+    for (var y = 0; y < 4; y++) {
+      var cell = this.grid.cells[x][y];
+      if (!cell) empty += 1;
+    }
+  }
+
+  move = this.getMove(this.grid, empty < 4 ? 4 : empty < 6 ? 3 : 2);
   var endTime = +new Date();
-  console.log(move.score.loss.toFixed(1) + ', ' + move.score.depth.toFixed(1) + ', ' + (endTime - startTime) + ', ' + Math.round(100 * this.cache.hit / (this.cache.hit + this.cache.miss)) + ', ' + move.score.counts.join(', '));
+  console.log(move.score.loss.toFixed(1) + ', ' + move.score.depth.toFixed(1) + ', ' + (endTime - startTime)/1000 + ', ' + Math.round(100 * this.cache.hit / (this.cache.hit + this.cache.miss)) + ', ' + move.score.counts.join(', '));
   return move;
 }
 
