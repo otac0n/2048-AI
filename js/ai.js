@@ -104,7 +104,7 @@ AI.prototype.getBest = function () {
     empty += value ? 0 : 1;
   });
 
-  move = this.getMove(this.grid, empty < 4 ? 4 : empty < 6 ? 3 : 2);
+  move = this.getMove(this.grid, empty == 0 ? 5 : empty < 4 ? 4 : empty < 7 ? 3 : 2);
   var endTime = +new Date();
   console.log(move.score.loss.toFixed(1) + ', ' + move.score.depth.toFixed(1) + ', ' + (endTime - startTime)/1000 + ', ' + Math.round(100 * this.cache.hit / (this.cache.hit + this.cache.miss)) + ', ' + move.score.counts.join(', '));
   return move;
