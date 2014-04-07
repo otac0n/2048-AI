@@ -27,19 +27,47 @@ var compareScores = function(a, b) {
   return 0;
 }
 
-var combineScores = function(scores, weights) {
+var findBestScore = function(moves) {
+  var min, move;
+  var minDepth = Math.min();
+  var avgDepth = 0;
+  var isFinal = true;
+  var count = 0;
+
+  for (var m in moves) {
+    count++;
+    var score = moves[m].score;
+    minDepth = Math.min(minDepth, score.minDepth);
+    avgDepth += score.avgDepth;
+    isFinal = isFinal && score.isFinal;
+    if (!min || compareScores(min, score) > 0) {
+      move = m;
+      min = score;
+    }
+  }
+
+  return { move: move, loss: min.loss, isFinal: isFinal, counts: min.counts, minDepth: minDepth + 1, avgDepth: avgDepth / count + 1 };
+}
+
+var combineScores = function(moves, weights) {
   var loss = 0;
-  var depth = 0;
+  var minDepth = Math.min();
+  var avgDepth = 0;
+  var isFinal = true;
+  var count = 0;
   var counts = [];
   var totalWeight = 0;
-  for (var i = 0; i < scores.length; i++) {
-    var score = scores[i];
+  for (var i in moves) {
+    count++;
+    var score = moves[i].score;
     var weight = weights[i];
 
     totalWeight += weight;
 
+    minDepth = Math.min(minDepth, score.minDepth);
+    avgDepth += score.avgDepth;
+    isFinal = isFinal && score.isFinal;
     loss += score.loss * weight;
-    depth += score.depth;
 
     var c = score.counts;
     var l = c.length;
@@ -53,7 +81,7 @@ var combineScores = function(scores, weights) {
     counts[i] /= totalWeight;
   }
 
-  return { loss: loss / totalWeight, counts: counts, depth: (depth / scores.length) + 1 };
+  return { move: '*', loss: loss / totalWeight, isFinal: isFinal, counts: counts, minDepth: minDepth + 1, avgDepth: avgDepth / count + 1 };
 }
 
 var hashes = [];
@@ -88,11 +116,12 @@ var scoreGrid = function(grid) {
     counts[exp] += 1;
   });
 
-  return { loss: 0, counts: counts, depth: 0 };
+  return { loss: 0, isFinal: false, counts: counts, minDepth: 0, avgDepth: 0 };
 }
 
 function AI(grid) {
   this.grid = grid;
+  this.table = { moves: 0 };
 }
 
 AI.prototype.getBest = function () {
@@ -104,69 +133,109 @@ AI.prototype.getBest = function () {
     empty += value ? 0 : 1;
   });
 
-  move = this.getMove(this.grid, empty < 4 ? 4 : empty < 6 ? 3 : 2);
+  var node = Node.getOrAdd(this.table, this.grid, /* clone: */ true);
+
+  if (++this.table.moves > 5) {
+    // console.log('GC');
+    this.table = { moves: 0 };
+    node.addTo(this.table);
+  }
+
+  score = node.deepen(this.table, (empty < 4 ? 4 : empty < 6 ? 3 : 2) * 2);
   var endTime = +new Date();
-  console.log(move.score.loss.toFixed(1) + ', ' + move.score.depth.toFixed(1) + ', ' + (endTime - startTime)/1000 + ', ' + Math.round(100 * this.cache.hit / (this.cache.hit + this.cache.miss)) + ', ' + move.score.counts.join(', '));
-  return move;
+  console.log(score.loss.toFixed(1) + ', ' + (score.avgDepth / 2).toFixed(1) + ', ' + (endTime - startTime)/1000 + ', ' + score.counts.join(', '));
+  return score;
 }
 
-AI.prototype.getMove = function(grid, depth) {
+function Node(grid, hash) {
+  this.grid = grid;
+  this.hash = hash || hashGrid(grid);
+  this.score = undefined;
+  this.moves = undefined;
+}
+
+Node.getOrAdd = function (table, grid, clone) {
+  table = table || {};
   var hash = hashGrid(grid);
-  var result = this.cache[hash];
-  if (result && result.score.depth >= depth) {
-    this.cache.hit += 1;
-    return result;
-  } else {
-    this.cache.miss += 1;
+  return table[hash] || (table[hash] = new Node(clone ? grid.clone() : grid, hash));
+}
+
+Node.prototype.addTo = function (table) {
+  if (!table[this.hash]) {
+    table[this.hash] = this;
+    if (this.moves) {
+      for (var i in this.moves) {
+        this.moves[i].addTo(table);
+      }
+    }
+  }
+}
+
+Node.prototype.deepen = function (table, depth) {
+  if (this.score && (this.score.isFinal || this.score.minDepth >= depth)) {
+    return this.score;
   }
 
-  if (grid.playerTurn) {
-    if (depth == 0) {
-      result = { score: scoreGrid(grid) };
+  if (this.grid.playerTurn) {
+    if (depth <= 0) {
+      this.score = scoreGrid(this.grid);
     } else {
-      var moves = [];
-      for (var dir = 0; dir < 4; dir++) {
-        var newGrid = grid.clone();
-        if (!newGrid.move(dir).moved) continue;
-        moves.push({ move: dir, score: this.getMove(newGrid, depth).score });
+      if (!this.moves) {
+        this.moves = {};
+        var any = false;
+        for (var dir = 0; dir < 4; dir++) {
+          var newGrid = this.grid.clone();
+          if (!newGrid.move(dir).moved) continue;
+          any = true;
+          this.moves[dir] = Node.getOrAdd(table, newGrid, /* clone: */ false);
+        }
+
+        if (!any) {
+          if (!this.score) {
+            this.score = scoreGrid(this.grid);
+          }
+
+          this.score.loss = 1;
+          this.score.isFinal = true;
+          this.moves = undefined;
+          this.grid = undefined;
+          return this.score;
+        }
       }
 
-      if (moves.length == 0) {
-        var score = scoreGrid(newGrid);
-        score.loss = 1;
-        result = { score: score };
-      } else {
-        var min = moves[0];
-        for (var i = 1; i < moves.length; i++) {
-          var move = moves[i];
-          if (compareScores(min.score, move.score) > 0) {
-            min = move;
-          }
-        }
-        result = min;
+      for (var i in this.moves) {
+        this.moves[i].deepen(table, depth - 1);
       }
+
+      this.score = findBestScore(this.moves);
     }
   } else {
-    var emptyCells = grid.availableCells();
+    if (!this.moves) {
+      var emptyCells = this.grid.availableCells();
 
-    var scores = [];
-    var weights = [];
-    for (var c = 0; c < emptyCells.length; c++) {
-      var fourGrid = grid.clone();
-      fourGrid.insertTile(new Tile(emptyCells[c], 4));
-      fourGrid.playerTurn = true;
-      scores.push(this.getMove(fourGrid, depth - 1).score);
-      weights.push(1);
+      this.moves = {};
+      this.weights = {};
+      for (var c = 0; c < emptyCells.length; c++) {
+        var fourGrid = this.grid.clone();
+        fourGrid.insertTile(new Tile(emptyCells[c], 4));
+        fourGrid.playerTurn = true;
+        this.moves[c + '-4'] = Node.getOrAdd(table, fourGrid, /* clone: */ false);
+        this.weights[c + '-4'] = 1;
 
-      var twoGrid = grid.clone();
-      twoGrid.insertTile(new Tile(emptyCells[c], 2));
-      twoGrid.playerTurn = true;
-      scores.push(this.getMove(twoGrid, depth - 1).score);
-      weights.push(9);
+        var twoGrid = this.grid.clone();
+        twoGrid.insertTile(new Tile(emptyCells[c], 2));
+        twoGrid.playerTurn = true;
+        this.moves[c + '-2'] = Node.getOrAdd(table, twoGrid, /* clone: */ false);
+        this.weights[c + '-2'] = 9;
+      }
     }
 
-    result = { score: combineScores(scores, weights) };
+    for (var i in this.moves) {
+      this.moves[i].deepen(table, depth - 1);
+    }
+
+    this.score = combineScores(this.moves, this.weights);
   }
 
-  return this.cache[hash] = result;
+  return this.score;
 }
