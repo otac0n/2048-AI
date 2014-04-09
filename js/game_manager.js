@@ -1,12 +1,14 @@
-function GameManager(size, InputManager, Actuator) {
-  this.size         = size; // Size of the grid
-  this.inputManager = new InputManager;
-  this.actuator     = new Actuator;
+function GameManager(size, InputManager, Actuator, StorageManager) {
+  this.size           = size; // Size of the grid
+  this.inputManager   = new InputManager;
+  this.storageManager = new StorageManager;
+  this.actuator       = new Actuator;
 
   this.running      = false;
 
   this.inputManager.on("move", this.move.bind(this));
   this.inputManager.on("restart", this.restart.bind(this));
+  this.inputManager.on("keepPlaying", this.keepPlaying.bind(this));
 
   this.inputManager.on('think', function() {
     var best = this.ai.getBest();
@@ -30,33 +32,88 @@ function GameManager(size, InputManager, Actuator) {
 
 // Restart the game
 GameManager.prototype.restart = function () {
-  this.actuator.restart();
+  this.storageManager.clearGameState();
+  this.actuator.continueGame(); // Clear the game won/lost message
   this.setup();
+};
+
+// Keep playing after winning (allows going over 2048)
+GameManager.prototype.keepPlaying = function () {
+  this.keepPlaying = true;
+  this.actuator.continueGame(); // Clear the game won/lost message
+};
+
+// Return true if the game is lost, or has won and the user hasn't kept playing
+GameManager.prototype.isGameTerminated = function () {
+  if (this.over || (this.won && !this.keepPlaying)) {
+    return true;
+  } else {
+    return false;
+  }
 };
 
 // Set up the game
 GameManager.prototype.setup = function () {
-  this.grid         = new Grid(this.size);
-  this.grid.addStartTiles();
+  var previousState = this.storageManager.getGameState();
 
-  this.ai           = new AI(this.grid);
+  // Reload the game from a previous game if present
+  if (previousState) {
+    this.grid        = new Grid(previousState.grid.size,
+                                previousState.grid.cells); // Reload grid
+    this.score       = previousState.score;
+    this.over        = previousState.over;
+    this.won         = previousState.won;
+    this.keepPlaying = previousState.keepPlaying;
+  } else {
+    this.grid        = new Grid(this.size);
+    this.score       = 0;
+    this.over        = false;
+    this.won         = false;
+    this.keepPlaying = false;
 
-  this.score        = 0;
-  this.over         = false;
-  this.won          = false;
+    // Add the initial tiles
+    this.grid.addStartTiles();
+  }
 
   // Update the actuator
   this.actuate();
+  
+  this.ai = new AI(this.grid);
 };
 
 
 // Sends the updated grid to the actuator
 GameManager.prototype.actuate = function () {
+  if (this.storageManager.getBestScore() < this.score) {
+    this.storageManager.setBestScore(this.score);
+  }
+
+  // Clear the state when the game is over (game over only, not win)
+  if (this.over) {
+    this.storageManager.clearGameState();
+  } else {
+    this.storageManager.setGameState(this.serialize());
+  }
+
   this.actuator.actuate(this.grid, {
-    score: this.score,
-    over:  this.over,
-    won:   this.won
+    score:      this.score,
+    over:       this.over,
+    won:        this.won,
+    bestScore:  this.storageManager.getBestScore(),
+    terminated: this.isGameTerminated()
   });
+
+};
+
+// Represent the current game as an object
+GameManager.prototype.serialize = function () {
+  return {
+    grid:        this.grid.serialize(),
+    score:       this.score,
+    over:        this.over,
+    won:         this.won,
+    keepPlaying: this.keepPlaying
+  };
 };
 
 // makes a given move and updates state
@@ -64,13 +121,12 @@ GameManager.prototype.move = function(direction) {
   var result = this.grid.move(direction);
   this.score += result.score;
 
-  if (!result.won) {
-    if (result.moved) {
-      this.grid.computerMove();
-    }
+  if (result.moved) {
+    this.grid.computerMove();
 
-  } else {
-    this.won = true;
+    if (result.won) {
+      this.won = true;
+    }
   }
 
   if (!this.grid.movesAvailable()) {
@@ -85,7 +141,7 @@ GameManager.prototype.run = function() {
   var best = this.ai.getBest();
   this.move(best.move);
   var timeout = animationDelay;
-  if (this.running && !this.over && !this.won) {
+  if (this.running && !this.isGameTerminated()) {
     var self = this;
     setTimeout(function(){
       self.run();

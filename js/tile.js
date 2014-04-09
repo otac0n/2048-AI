@@ -16,9 +16,12 @@ Tile.prototype.updatePosition = function (position) {
   this.y = position.y;
 };
 
-Tile.prototype.clone = function() {
-  newTile = new Tile({ x: this.x, y: this.y }, this.value);
-  //newTile.previousPosition = { x: this.previousPosition.x, y: this.previousPosition.y };
-  //newTile.mergedFrom = { x: this.previousPosition.x, y: this.previousPosition.y };
-  return newTile;
-}
+Tile.prototype.serialize = function () {
+  return {
+    position: {
+      x: this.x,
+      y: this.y
+    },
+    value: this.value
+  };
+};
