@@ -8,19 +8,10 @@ var forEachCell = function (grid, func) {
 }
 
 var compareScores = function(a, b) {
-  if (a.loss != b.loss) {
-    return a.loss - b.loss;
-  }
-
-  if (a.sum != b.sum) {
-    return b.sum - a.sum;
-  }
-
-  return 0;
+  return b.sum - a.sum;
 }
 
 var combineScores = function(scores, weights) {
-  var loss = 0;
   var depth = 0;
   var sum = 0;
   var totalWeight = 0;
@@ -29,13 +20,11 @@ var combineScores = function(scores, weights) {
     var weight = weights[i];
 
     totalWeight += weight;
-
-    loss += score.loss * weight;
     depth += score.depth;
     sum += score.sum * weight;
   }
 
-  return { loss: loss / totalWeight, sum: sum / totalWeight, depth: (depth / scores.length) + 1 };
+  return { sum: sum / totalWeight, depth: (depth / scores.length) + 1 };
 }
 
 var hashes = [];
@@ -65,17 +54,35 @@ var hashGrid = function(grid) {
 var scoreGrid = function(grid) {
   var sum = 0;
   forEachCell(grid, function (value, x, y) {
-    var exp = Math.log(value || 1) / Math.LN2;
-    if (exp != 1) {
+    if (value != 0) {
+      var exp = Math.log(value) / Math.LN2;
       sum += Math.pow(10, exp);
-      var edgeBonus = (x == 0 || x == 3 ? 1 : 0) + (y == 0 || y == 3 ? 1 : 0);
-      if (edgeBonus > 0) {
-        sum += edgeBonus * Math.pow(10, exp - 4);
+
+      var edges = 0;
+      for (var i = 0; i < 4; i++) {
+        var vec = Grid.prototype.vectors[i];
+        vec = {
+          x: vec.x + x,
+          y: vec.y + y
+        };
+
+        if (vec.x < 0 || vec.x >= 4 || vec.y < 0 || vec.y >= 4) {
+          edges += 1;
+        } else {
+          var adj = grid.cells[vec.x][vec.y];
+          if (adj && adj.value >= value) {
+            edges += 1;
+          }
+        }
+      }
+
+      if (edges >= 2) {
+        sum += Math.pow(10, exp - 4);
       }
     }
   });
 
-  return { loss: 0, sum: sum, depth: 0 };
+  return { sum: sum, depth: 0 };
 }
 
 function AI(grid) {
@@ -91,16 +98,16 @@ AI.prototype.getBest = function () {
     empty += value ? 0 : 1;
   });
 
-  var depth = 2;
+  var depth = 3;
   var move;
   var endTime;
   do
   {
     move = this.getMove(this.grid, depth++);
     endTime = +new Date();
-  } while ((endTime - startTime) < (move.score.loss == 0 ? 150 : 1000));
+  } while ((endTime - startTime) < (move.score.sum > 0 ? 150 : 1000));
 
-  console.log(+move.score.loss.toFixed(4) + ', ' + move.score.depth.toFixed(1) + ', ' + ((endTime - startTime)/1000).toFixed(3) + ', ' + Math.round(100 * this.cache.hit / (this.cache.hit + this.cache.miss)) + ', ' + move.score.sum);
+  console.log(move.score.depth.toFixed(1) + ', ' + ((endTime - startTime)/1000).toFixed(3) + ', ' + Math.round(100 * this.cache.hit / (this.cache.hit + this.cache.miss)) + ', ' + move.score.sum);
   return move;
 }
 
@@ -127,7 +134,7 @@ AI.prototype.getMove = function(grid, depth) {
 
       if (moves.length == 0) {
         var score = scoreGrid(newGrid);
-        score.loss = 1;
+        score.sum = -Math.pow(10, 100);
         result = { score: score };
       } else {
         var min = moves[0];
