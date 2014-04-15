@@ -12,16 +12,8 @@ var compareScores = function(a, b) {
     return a.loss - b.loss;
   }
 
-  var ac = a.counts;
-  var bc = b.counts;
-  var len = Math.max(ac.length, bc.length);
-  for (var i = len - 1; i >= 0; i--) {
-    if (i == 1) continue;
-    var av = ac[i] || 0;
-    var bv = bc[i] || 0;
-    if (av != bv) {
-      return bv - av;
-    }
+  if (a.sum != b.sum) {
+    return b.sum - a.sum;
   }
 
   return 0;
@@ -30,7 +22,7 @@ var compareScores = function(a, b) {
 var combineScores = function(scores, weights) {
   var loss = 0;
   var depth = 0;
-  var counts = [];
+  var sum = 0;
   var totalWeight = 0;
   for (var i = 0; i < scores.length; i++) {
     var score = scores[i];
@@ -40,20 +32,10 @@ var combineScores = function(scores, weights) {
 
     loss += score.loss * weight;
     depth += score.depth;
-
-    var c = score.counts;
-    var l = c.length;
-    while (counts.length < l) counts.push(0);
-    for (var j = 0; j < l; j++) {
-      counts[j] += c[j] * weight;
-    }
+    sum += score.sum * weight;
   }
 
-  for (var i = 0; i < counts.length; i++) {
-    counts[i] /= totalWeight;
-  }
-
-  return { loss: loss / totalWeight, counts: counts, depth: (depth / scores.length) + 1 };
+  return { loss: loss / totalWeight, sum: sum / totalWeight, depth: (depth / scores.length) + 1 };
 }
 
 var hashes = [];
@@ -81,14 +63,19 @@ var hashGrid = function(grid) {
 }
 
 var scoreGrid = function(grid) {
-  var counts = [ 0, 0 ];
-  forEachCell(grid, function (value) {
+  var sum = 0;
+  forEachCell(grid, function (value, x, y) {
     var exp = Math.log(value || 1) / Math.LN2;
-    while (counts.length <= exp) counts.push(0);
-    counts[exp] += 1;
+    if (exp != 1) {
+      sum += Math.pow(10, exp);
+      var edgeBonus = (x == 0 || x == 3 ? 1 : 0) + (y == 0 || y == 3 ? 1 : 0);
+      if (edgeBonus > 0) {
+        sum += edgeBonus * Math.pow(10, exp - 4);
+      }
+    }
   });
 
-  return { loss: 0, counts: counts, depth: 0 };
+  return { loss: 0, sum: sum, depth: 0 };
 }
 
 function AI(grid) {
@@ -104,9 +91,16 @@ AI.prototype.getBest = function () {
     empty += value ? 0 : 1;
   });
 
-  move = this.getMove(this.grid, empty == 0 ? 5 : empty < 4 ? 4 : empty < 7 ? 3 : 2);
-  var endTime = +new Date();
-  console.log(move.score.loss.toFixed(1) + ', ' + move.score.depth.toFixed(1) + ', ' + (endTime - startTime)/1000 + ', ' + Math.round(100 * this.cache.hit / (this.cache.hit + this.cache.miss)) + ', ' + move.score.counts.join(', '));
+  var depth = 2;
+  var move;
+  var endTime;
+  do
+  {
+    move = this.getMove(this.grid, depth++);
+    endTime = +new Date();
+  } while ((endTime - startTime) < (move.score.loss == 0 ? 150 : 1000));
+
+  console.log(+move.score.loss.toFixed(4) + ', ' + move.score.depth.toFixed(1) + ', ' + ((endTime - startTime)/1000).toFixed(3) + ', ' + Math.round(100 * this.cache.hit / (this.cache.hit + this.cache.miss)) + ', ' + move.score.sum);
   return move;
 }
 
