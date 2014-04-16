@@ -71,13 +71,13 @@ var scoreGrid = function(grid) {
         } else {
           var adj = grid.cells[vec.x][vec.y];
           if (adj && adj.value >= value) {
-            edges += 1;
+            edges += 1.1;
           }
         }
       }
 
       if (edges >= 2) {
-        sum += Math.pow(10, exp - 4);
+        sum += Math.pow(10, exp - 2) + Math.pow(10, exp - 5) * edges;
       }
     }
   });
