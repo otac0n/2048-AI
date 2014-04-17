@@ -52,37 +52,49 @@ var hashGrid = function(grid) {
 }
 
 var scoreGrid = function(grid) {
-  var sum = 0;
+  var sums = [0, 0, 0, 0];
+
   forEachCell(grid, function (value, x, y) {
-    if (value != 0) {
-      var exp = Math.log(value) / Math.LN2;
-      sum += Math.pow(10, exp);
+    if (value) {
+      var adj = [
+        x == 0 ? 'edge' : grid.cells[x - 1][y],
+        y == 0 ? 'edge' : grid.cells[x][y - 1],
+        x == 3 ? 'edge' : grid.cells[x + 1][y],
+        y == 3 ? 'edge' : grid.cells[x][y + 1]
+      ];
 
-      var edges = 0;
-      for (var i = 0; i < 4; i++) {
-        var vec = Grid.prototype.vectors[i];
-        vec = {
-          x: vec.x + x,
-          y: vec.y + y
-        };
+      adj = adj.map(function (i) { return i == 'edge' ? i : i ? (i.value > value ? 1 : i.value < value ? -1 : 0) : 'empty'; });
 
-        if (vec.x < 0 || vec.x >= 4 || vec.y < 0 || vec.y >= 4) {
-          edges += 1;
-        } else {
-          var adj = grid.cells[vec.x][vec.y];
-          if (adj && adj.value >= value) {
-            edges += 1.1;
-          }
-        }
+      var lr = 1
+      var ud = 1;
+
+      switch (adj[0] + ',' + adj[2])
+      {
+        case '-1,-1':
+        case '1,1':
+        case '1,edge':
+        case 'edge,1':
+          lr = 0.9;
       }
 
-      if (edges >= 2) {
-        sum += Math.pow(10, exp - 2) + Math.pow(10, exp - 5) * edges;
+      switch (adj[1] + ',' + adj[3])
+      {
+        case '-1,-1':
+        case '1,1':
+        case '1,edge':
+        case 'edge,1':
+          ud = 0.9;
       }
+
+      var exp = Math.pow(10, Math.log(value) / Math.LN2);
+      sums[0] += ud * exp / (1 + x);
+      sums[1] += lr * exp / (1 + y);
+      sums[2] += ud * exp / (4 - x);
+      sums[3] += lr * exp / (4 - y);
     }
   });
 
-  return { sum: sum, depth: 0 };
+  return { sum: Math.max.apply(null, sums), depth: 0 };
 }
 
 function AI(grid) {
@@ -107,7 +119,9 @@ AI.prototype.getBest = function () {
     endTime = +new Date();
   } while ((endTime - startTime) < (move.score.sum > 0 ? 150 : 1000));
 
-  console.log(move.score.depth.toFixed(1) + ', ' + ((endTime - startTime)/1000).toFixed(3) + ', ' + Math.round(100 * this.cache.hit / (this.cache.hit + this.cache.miss)) + ', ' + move.score.sum);
+  var currentScore = scoreGrid(this.grid);
+  var delta = move.score.sum - currentScore.sum;
+  console.log(move.score.depth.toFixed(1) + ', ' + (endTime - startTime) + 'ms, ' + Math.round(100 * this.cache.hit / (this.cache.hit + this.cache.miss)) + '%, ' + move.score.sum + ' (' + (delta > 0 ? '+' : '') + delta.toExponential(2) + ')');
   return move;
 }
 
