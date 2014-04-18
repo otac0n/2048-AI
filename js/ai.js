@@ -54,36 +54,35 @@ var hashGrid = function(grid) {
 var scoreGrid = function(grid) {
   var sums = [0, 0, 0, 0];
 
+  var cells = [];
+  for (var y = 0; y < 4; y++) {
+    for (var x = 0; x < 4; x++) {
+      var cell = grid.cells[x][y];
+      cells.push(cell ? cell.value : 0);
+    }
+  }
+
   forEachCell(grid, function (value, x, y) {
     if (value) {
-      var adj = [
-        x == 0 ? 'edge' : grid.cells[x - 1][y],
-        y == 0 ? 'edge' : grid.cells[x][y - 1],
-        x == 3 ? 'edge' : grid.cells[x + 1][y],
-        y == 3 ? 'edge' : grid.cells[x][y + 1]
-      ];
+      var l = x == 0 ? 'edge' : cells[(x - 1) + 4 * (y)];
+      var u = y == 0 ? 'edge' : cells[(x) + 4 * (y - 1)];
+      var r = x == 3 ? 'edge' : cells[(x + 1) + 4 * (y)];
+      var d = y == 3 ? 'edge' : cells[(x) + 4 * (y + 1)];
 
-      adj = adj.map(function (i) { return i == 'edge' ? i : i ? (i.value > value ? 1 : i.value < value ? -1 : 0) : 'empty'; });
+      l = l == 'edge' ? l : l == 0 ? 'empty' : (l > value ? 1 : l < value ? -1 : 0);
+      u = u == 'edge' ? u : u == 0 ? 'empty' : (u > value ? 1 : u < value ? -1 : 0);
+      r = r == 'edge' ? r : r == 0 ? 'empty' : (r > value ? 1 : r < value ? -1 : 0);
+      d = d == 'edge' ? d : d == 0 ? 'empty' : (d > value ? 1 : d < value ? -1 : 0);
 
       var lr = 1
       var ud = 1;
 
-      switch (adj[0] + ',' + adj[2])
-      {
-        case '-1,-1':
-        case '1,1':
-        case '1,edge':
-        case 'edge,1':
-          lr = 0.9;
+      if ((l == -1 && r == -1) || ((l == 1 || l == 'edge') && (r == 1 || r == 'edge'))) {
+        lr = 0.9;
       }
 
-      switch (adj[1] + ',' + adj[3])
-      {
-        case '-1,-1':
-        case '1,1':
-        case '1,edge':
-        case 'edge,1':
-          ud = 0.9;
+      if ((u == -1 && d == -1) || ((u == 1 || u == 'edge') && (d == 1 || d == 'edge'))) {
+        ud = 0.9;
       }
 
       var exp = Math.pow(10, Math.log(value) / Math.LN2);
