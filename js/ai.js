@@ -112,15 +112,17 @@ AI.prototype.getBest = function () {
   var depth = 3;
   var move;
   var endTime;
+  var moves = [];
   do
   {
     move = this.getMove(this.grid, depth++);
+    moves.push(['\u25B2', '\u25B6', '\u25BC', '\u25C0'][move.move]);
     endTime = +new Date();
   } while ((endTime - startTime) < (move.score.sum > 0 ? 150 : 1000));
 
   var currentScore = scoreGrid(this.grid);
   var delta = move.score.sum - currentScore.sum;
-  console.log(move.score.depth.toFixed(1) + ', ' + (endTime - startTime) + 'ms, ' + Math.round(100 * this.cache.hit / (this.cache.hit + this.cache.miss)) + '%, ' + move.score.sum + ' (' + (delta > 0 ? '+' : '') + delta.toExponential(2) + ')');
+  console.log(move.score.depth.toFixed(1) + ', ' + (endTime - startTime) + 'ms, ' + Math.round(100 * this.cache.hit / (this.cache.hit + this.cache.miss)) + '%, ' + move.score.sum + ' (' + (delta > 0 ? '+' : '') + delta.toExponential(2) + '), [' + moves.join('') + ']');
   return move;
 }
 
