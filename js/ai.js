@@ -104,11 +104,6 @@ AI.prototype.getBest = function () {
   var startTime = +new Date();
   this.cache = { hit: 0, miss: 0 };
 
-  var empty = 0;
-  forEachCell(this.grid, function (value) {
-    empty += value ? 0 : 1;
-  });
-
   var depth = 3;
   var move;
   var endTime;
